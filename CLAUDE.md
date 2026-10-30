@@ -28,10 +28,10 @@ Things that are easy to get wrong:
 
 ## The PHP image
 
-`file/php/Dockerfile` builds `php:8.3-fpm-alpine` with the extensions SSPanel needs (redis, yaml, zip, mysqli, pdo_mysql, bcmath, imap) and hard-codes php-fpm pool settings via appended `zz-docker.conf` lines. It sets `LD_PRELOAD` to GNU libiconv (Alpine's musl iconv breaks some PHP libs). After changing the Dockerfile, publish the multi-arch image with:
+`file/php/Dockerfile` builds from `php:8-fpm-alpine` (a floating tag; it resolved to PHP 8.5 in October 2026) with the extensions SSPanel needs (redis, yaml, zip, mysqli, pdo_mysql, bcmath, imap) and hard-codes php-fpm pool settings via appended `zz-docker.conf` lines. The imap extension (also the POP3/NNTP client; wanted by the operator even though SSPanel's composer.json does not require it) is installed from PECL with `--configureoptions`, because PHP 8.4+ no longer ships it in-tree: on those images `/usr/src/php/ext/imap` contains only tests, so `docker-php-ext-configure imap` fails with `Cannot find config.m4`. PHP INI overrides go in `/usr/local/etc/php/conf.d/*.ini`, not in `zz-docker.conf`; php-fpm rejects unknown keys in its pool config with `unknown entry` and refuses to start. It sets `LD_PRELOAD` to GNU libiconv (Alpine's musl iconv breaks some PHP libs). After changing the Dockerfile, publish the multi-arch image with:
 
 ```bash
-bash file/php/push.bash   # buildx --push to gtary/ssp:php for 7 platforms; requires Docker Hub login
+bash file/php/push.bash   # buildx --push to gtary/ssp:php for linux/arm64 + linux/amd64; requires Docker Hub login
 ```
 
 The compose file pulls `gtary/ssp:php` rather than building locally, so a Dockerfile change has no effect until the image is pushed (or the `php` service is switched to `build: ./file/php`).
