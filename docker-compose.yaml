@@ -29,6 +29,8 @@ services:
         container_name: mariadb-2025
         restart: always
         image: mariadb:lts
+        ports:
+            - 63306:3306 # 给 ai 开的读取端口
         environment:
             - TZ=Asia/Shanghai
             - MARIADB_ROOT_PASSWORD=$MARIADB_ROOT_PASSWORD
