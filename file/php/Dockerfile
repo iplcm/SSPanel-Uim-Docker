@@ -1,4 +1,4 @@
-FROM php:8.3-fpm-alpine
+FROM php:8-fpm-alpine
 
 RUN apk add --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing gnu-libiconv \
     && apk add --no-cache tzdata libzip-dev imap-dev krb5-dev openssl-dev yaml-dev \
