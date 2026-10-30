@@ -12,6 +12,7 @@ RUN apk add --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/test
     && echo 'memory_limit = 2048M' >> /usr/local/etc/php/conf.d/docker-php-memlimit.ini \
     && cp /usr/local/etc/php/php.ini-production /usr/local/etc/php/php.ini \
     && sed -i "s|error_reporting = E_ALL \\& ~E_DEPRECATED \\& ~E_STRICT|error_reporting = E_COMPILE_ERROR\\|E_RECOVERABLE_ERROR\\|E_ERROR\\|E_CORE_ERROR |" /usr/local/etc/php/php.ini \
+    && echo 'session.upload_progress.enabled = 0' >> /usr/local/etc/php/conf.d/docker-php-session.ini \
     && echo 'access.log = /dev/null' >> /usr/local/etc/php-fpm.d/zz-docker.conf \
     && echo 'listen.backlog = -1' >> /usr/local/etc/php-fpm.d/zz-docker.conf \
     && echo 'pm = dynamic' >> /usr/local/etc/php-fpm.d/zz-docker.conf \
