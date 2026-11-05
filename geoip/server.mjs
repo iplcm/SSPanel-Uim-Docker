@@ -6,7 +6,9 @@
  *   GEOIP_DB_DIR      mmdb 所在目录，默认 /data；需要 GeoLite2-City.mmdb（可选 GeoLite2-Country.mmdb 作为回退）
  *   GEOIP_TOKEN       鉴权 token，设置后请求必须带 Authorization: Bearer <token>
  *   GEOIP_LOCALE      名称语言，默认 zh-CN，找不到时回退 en
- *   GEOIP_ACCOUNT_ID / GEOIP_LICENSE_KEY  设置后启动时及每天自动从 MaxMind 下载更新数据库
+ *   GEOIP_SOURCE_URL  mmdb 下载地址模板，{edition} 会被替换为 GeoLite2-City / GeoLite2-Country，
+ *                     默认 https://github.com/du5/geoip/blob/main/{edition}.mmdb?raw=1（无需 MaxMind 账号）
+ *   GEOIP_UPDATE_HOURS 自动刷新间隔（小时），默认 24，0 表示只在缺文件时下载
  *
  * 接口：
  *   GET  /healthz
@@ -15,23 +17,19 @@
  * 返回 {"results": {"1.2.3.4": {"country": "...", "country_code": "CN", "city": "...", "location": "城市, 国家"}}}
  */
 import { createServer } from 'node:http';
-import { createReadStream, createWriteStream, existsSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs';
-import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { createWriteStream, existsSync, mkdirSync, renameSync, statSync } from 'node:fs';
 import { isIP } from 'node:net';
-import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { createGunzip } from 'node:zlib';
 import maxmind from 'maxmind';
-import * as tar from 'tar';
 
 const PORT = Number(process.env.GEOIP_PORT ?? 8090);
 const DB_DIR = process.env.GEOIP_DB_DIR ?? '/data';
 const TOKEN = process.env.GEOIP_TOKEN ?? '';
 const LOCALE = process.env.GEOIP_LOCALE ?? 'zh-CN';
-const ACCOUNT_ID = process.env.GEOIP_ACCOUNT_ID ?? '';
-const LICENSE_KEY = process.env.GEOIP_LICENSE_KEY ?? '';
-const EDITIONS = ['GeoLite2-City', 'GeoLite2-Country'];
+const SOURCE_URL = process.env.GEOIP_SOURCE_URL ?? 'https://github.com/du5/geoip/blob/main/{edition}.mmdb?raw=1';
+const UPDATE_HOURS = Number(process.env.GEOIP_UPDATE_HOURS ?? 24);
+const EDITIONS = ['GeoLite2-Country', 'GeoLite2-City'];
 
 const readers = { city: null, country: null };
 
@@ -71,42 +69,32 @@ function lookup(ip) {
 }
 
 async function downloadEdition(edition) {
-  const url = `https://download.maxmind.com/geoip/databases/${edition}/download?suffix=tar.gz`;
-  const auth = Buffer.from(`${ACCOUNT_ID}:${LICENSE_KEY}`).toString('base64');
-  const resp = await fetch(url, { headers: { authorization: `Basic ${auth}` }, redirect: 'follow' });
-  if (!resp.ok) {
+  const url = SOURCE_URL.replace('{edition}', edition);
+  const resp = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(10 * 60 * 1000) });
+  if (!resp.ok || !resp.body) {
     throw new Error(`下载 ${edition} 失败: HTTP ${resp.status}`);
-  }
-  const work = await mkdtemp(path.join(tmpdir(), 'geoip-'));
-  const archive = path.join(work, `${edition}.tar.gz`);
-  await pipeline(resp.body, createWriteStream(archive));
-  await tar.x({ file: archive, cwd: work });
-  const dirs = (await readdir(work, { withFileTypes: true })).filter((d) => d.isDirectory());
-  let found = null;
-  for (const dir of dirs) {
-    const candidate = path.join(work, dir.name, `${edition}.mmdb`);
-    if (existsSync(candidate)) {
-      found = candidate;
-    }
-  }
-  if (!found) {
-    await rm(work, { recursive: true, force: true });
-    throw new Error(`压缩包里没有 ${edition}.mmdb`);
   }
   mkdirSync(DB_DIR, { recursive: true });
   const target = path.join(DB_DIR, `${edition}.mmdb`);
-  const temp = `${target}.tmp`;
-  await pipeline(createReadStream(found), createWriteStream(temp));
+  const temp = `${target}.download`;
+  await pipeline(resp.body, createWriteStream(temp));
+  const size = statSync(temp).size;
+  if (size < 1024 * 1024) {
+    throw new Error(`下载的 ${edition} 太小（${size} 字节），疑似不是 mmdb 文件`);
+  }
+  // 先校验能打开再替换正式文件
+  await maxmind.open(temp);
   renameSync(temp, target);
-  await rm(work, { recursive: true, force: true });
-  console.log(`已更新 ${edition}: ${statSync(target).size} 字节`);
+  console.log(`已更新 ${edition}: ${size} 字节，来源 ${url}`);
 }
 
-async function updateDatabases() {
-  if (ACCOUNT_ID === '' || LICENSE_KEY === '') {
-    return;
-  }
+/** 缺文件或到刷新周期时从 GitHub 下载 GeoLite2 库（du5/geoip 镜像，无需 MaxMind 账号） */
+async function updateDatabases(force) {
   for (const edition of EDITIONS) {
+    const target = path.join(DB_DIR, `${edition}.mmdb`);
+    if (!force && existsSync(target)) {
+      continue;
+    }
     try {
       await downloadEdition(edition);
     } catch (err) {
@@ -175,9 +163,12 @@ const server = createServer(async (req, res) => {
   return send(res, 404, { error: 'not found' });
 });
 
-await updateDatabases();
-await openReaders();
+await updateDatabases(false);
+if (!readers.city && !readers.country) {
+  console.error('没有可用的 GeoLite2 数据库，退出');
+  process.exit(1);
+}
 server.listen(PORT, () => console.log(`GeoIP 服务监听 :${PORT}，鉴权 ${TOKEN === '' ? '关闭' : '开启'}，语言 ${LOCALE}`));
-if (ACCOUNT_ID !== '' && LICENSE_KEY !== '') {
-  setInterval(updateDatabases, 24 * 60 * 60 * 1000).unref();
+if (UPDATE_HOURS > 0) {
+  setInterval(() => updateDatabases(true), UPDATE_HOURS * 60 * 60 * 1000).unref();
 }

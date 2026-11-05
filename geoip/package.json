@@ -11,7 +11,6 @@
     "start": "node server.mjs"
   },
   "dependencies": {
-    "maxmind": "^5.0.0",
-    "tar": "^7.5.3"
+    "maxmind": "^5.0.0"
   }
 }

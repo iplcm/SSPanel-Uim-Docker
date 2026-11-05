@@ -10,7 +10,7 @@ GEOIP_TOKEN=随便一串随机字符 docker compose up -d --build
 curl -H "Authorization: Bearer 随便一串随机字符" "http://127.0.0.1:8090/v1/lookup?ip=8.8.8.8"
 ```
 
-默认挂载的是子模块 `SSPanel-Uim/storage/GeoLite2-*.mmdb`（旧版 PHP 面板的 `uim` 分支自带；Workers 版分支不再包含这两个文件，子模块指针请保持在旧提交，或改挂自己下载的 mmdb 目录）。要自动更新，去掉只读挂载改为挂目录，并设置 `GEOIP_ACCOUNT_ID` 与 `GEOIP_LICENSE_KEY`，服务会在启动时和每天下载最新库。
+数据库不需要 MaxMind 账号：容器启动时自动从 [du5/geoip](https://github.com/du5/geoip) 下载 `GeoLite2-Country.mmdb` 和 `GeoLite2-City.mmdb` 到 `geoip-data` 卷，之后每 24 小时刷新一次（`GEOIP_UPDATE_HOURS`，设 0 则只在缺文件时下载）。下载地址可用 `GEOIP_SOURCE_URL` 改成自己的镜像。
 
 ## 暴露给 Worker
 
@@ -45,4 +45,5 @@ Worker 必须通过 HTTPS 访问这个服务。两种做法：
 | `GEOIP_DB_DIR` | /data | mmdb 目录 |
 | `GEOIP_TOKEN` | 空 | 鉴权 token，为空则不鉴权 |
 | `GEOIP_LOCALE` | zh-CN | 地名语言 |
-| `GEOIP_ACCOUNT_ID` / `GEOIP_LICENSE_KEY` | 空 | MaxMind 账号，用于自动更新 |
+| `GEOIP_SOURCE_URL` | du5/geoip 镜像 | mmdb 下载地址模板，`{edition}` 替换为库名 |
+| `GEOIP_UPDATE_HOURS` | 24 | 自动刷新间隔，0 表示只在缺文件时下载 |
