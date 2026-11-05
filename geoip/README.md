@@ -10,7 +10,7 @@ GEOIP_TOKEN=随便一串随机字符 docker compose up -d --build
 curl -H "Authorization: Bearer 随便一串随机字符" "http://127.0.0.1:8090/v1/lookup?ip=8.8.8.8"
 ```
 
-默认挂载的是面板仓库里自带的 `SSPanel-Uim/storage/GeoLite2-*.mmdb`。要自动更新，去掉只读挂载改为挂目录，并设置 `GEOIP_ACCOUNT_ID` 与 `GEOIP_LICENSE_KEY`，服务会在启动时和每天下载最新库。
+默认挂载的是子模块 `SSPanel-Uim/storage/GeoLite2-*.mmdb`（旧版 PHP 面板的 `uim` 分支自带；Workers 版分支不再包含这两个文件，子模块指针请保持在旧提交，或改挂自己下载的 mmdb 目录）。要自动更新，去掉只读挂载改为挂目录，并设置 `GEOIP_ACCOUNT_ID` 与 `GEOIP_LICENSE_KEY`，服务会在启动时和每天下载最新库。
 
 ## 暴露给 Worker
 
