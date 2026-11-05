@@ -1,0 +1,20 @@
+services:
+    geoip:
+        container_name: geoip-2025
+        build: .
+        restart: always
+        ports:
+            # 建议只在本机监听，再用 nginx / Cloudflare Tunnel 加 HTTPS 暴露给 Worker
+            - 127.0.0.1:8090:8090
+        volumes:
+            # 面板仓库自带的 GeoLite2 数据库；也可以换成自己的目录
+            - ../SSPanel-Uim/storage/GeoLite2-City/GeoLite2-City.mmdb:/data/GeoLite2-City.mmdb:ro
+            - ../SSPanel-Uim/storage/GeoLite2-Country/GeoLite2-Country.mmdb:/data/GeoLite2-Country.mmdb:ro
+        environment:
+            - TZ=Asia/Shanghai
+            - GEOIP_LOCALE=zh-CN
+            # 与 Worker 的 GEOIP_API_TOKEN 保持一致；留空则不鉴权
+            - GEOIP_TOKEN=${GEOIP_TOKEN:-}
+            # 填写后会自动从 MaxMind 下载并每日更新（此时不要把 mmdb 以只读方式挂载，改挂目录）
+            # - GEOIP_ACCOUNT_ID=
+            # - GEOIP_LICENSE_KEY=

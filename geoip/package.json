@@ -1,0 +1,17 @@
+{
+  "name": "sspanel-geoip",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "SSPanel-UIM Workers 版使用的 GeoIP 查询服务",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "maxmind": "^5.0.0",
+    "tar": "^7.5.3"
+  }
+}

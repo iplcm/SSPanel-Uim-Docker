@@ -98,3 +98,13 @@ use sspanel;
 source /tmp/sql/db.sql;"'
 
 ```
+
+### GeoIP 服务（Workers 版面板使用）
+
+面板迁移到 Cloudflare Workers 后，IP 归属地由 `geoip/` 目录里的小服务提供，读取仓库自带的 GeoLite2 数据库。启动与配置见 [geoip/README.md](geoip/README.md)：
+
+```bash
+cd geoip
+GEOIP_TOKEN=<随机字符串> docker compose up -d --build
+```
+
