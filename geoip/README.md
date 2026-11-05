@@ -6,9 +6,11 @@
 
 ```bash
 cd geoip
-GEOIP_TOKEN=随便一串随机字符 docker compose up -d --build
-curl -H "Authorization: Bearer 随便一串随机字符" "http://127.0.0.1:8090/v1/lookup?ip=8.8.8.8"
+docker compose up -d --build
+curl "http://127.0.0.1:8090/v1/lookup?ip=8.8.8.8"
 ```
+
+不需要任何账号或 key。如果查询接口要暴露到公网，可以选择设置 `GEOIP_TOKEN`（任意随机字符串）给接口加个访问口令，Worker 侧把同一字符串写入 `GEOIP_API_TOKEN`；不设则不鉴权。
 
 数据库不需要 MaxMind 账号：容器启动时自动从 [du5/geoip](https://github.com/du5/geoip) 下载 `GeoLite2-Country.mmdb` 和 `GeoLite2-City.mmdb` 到 `geoip-data` 卷，之后每 24 小时刷新一次（`GEOIP_UPDATE_HOURS`，设 0 则只在缺文件时下载）。下载地址可用 `GEOIP_SOURCE_URL` 改成自己的镜像。
 
@@ -19,7 +21,7 @@ Worker 必须通过 HTTPS 访问这个服务。两种做法：
 1. 已有 nginx 的话加一个反代到 `127.0.0.1:8090` 的 server 块并配置证书。
 2. 用 Cloudflare Tunnel 把 `http://127.0.0.1:8090` 映射到一个子域名。
 
-然后在 Worker 里配置 `GEOIP_API_URL`（如 `https://geoip.example.com`），并用 `wrangler secret put GEOIP_API_TOKEN` 写入相同的 token。
+然后在 Worker 里配置 `GEOIP_API_URL`（如 `https://geoip.example.com`）。若设置了 `GEOIP_TOKEN`，再用 `wrangler secret put GEOIP_API_TOKEN` 写入相同的字符串。
 
 ## 接口
 
@@ -43,7 +45,7 @@ Worker 必须通过 HTTPS 访问这个服务。两种做法：
 |---|---|---|
 | `GEOIP_PORT` | 8090 | 监听端口 |
 | `GEOIP_DB_DIR` | /data | mmdb 目录 |
-| `GEOIP_TOKEN` | 空 | 鉴权 token，为空则不鉴权 |
+| `GEOIP_TOKEN` | 空 | 可选的接口访问口令，为空则不鉴权（与 GeoLite 库无关） |
 | `GEOIP_LOCALE` | zh-CN | 地名语言 |
 | `GEOIP_SOURCE_URL` | du5/geoip 镜像 | mmdb 下载地址模板，`{edition}` 替换为库名 |
 | `GEOIP_UPDATE_HOURS` | 24 | 自动刷新间隔，0 表示只在缺文件时下载 |

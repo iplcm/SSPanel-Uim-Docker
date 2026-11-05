@@ -12,8 +12,8 @@ services:
         environment:
             - TZ=Asia/Shanghai
             - GEOIP_LOCALE=zh-CN
-            # 与 Worker 的 GEOIP_API_TOKEN 保持一致；留空则不鉴权
-            - GEOIP_TOKEN=${GEOIP_TOKEN:-}
+            # 可选：查询接口的访问口令（任意字符串），设置后 Worker 的 GEOIP_API_TOKEN 填同一值；留空则不鉴权
+            # - GEOIP_TOKEN=
             # 下载地址模板，{edition} 会被替换为库名；默认 du5/geoip 镜像，无需 MaxMind 账号
             # - GEOIP_SOURCE_URL=https://github.com/du5/geoip/blob/main/{edition}.mmdb?raw=1
             # 自动刷新间隔（小时），0 表示只在缺文件时下载
