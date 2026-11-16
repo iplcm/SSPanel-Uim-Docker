@@ -1,4 +1,7 @@
-FROM php:8-fpm-alpine
+# 固定在 8.5：8.6 的官方镜像不再带 pecl，也不再内置 mbstring，
+# 而且 redis 6.3.0 / yaml 2.3.0 / imap 1.0.3 在 8.6 上还编译不过（2026-11 用 8.6.0RC7 验证）。
+# 等这些扩展发布支持 8.6 的版本后再改这一行，届时扩展的安装方式也要一起调整。
+FROM php:8.5-fpm-alpine
 
 RUN apk add --no-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing gnu-libiconv \
     && apk add --no-cache tzdata libzip-dev imap-dev krb5-dev openssl-dev yaml-dev \
