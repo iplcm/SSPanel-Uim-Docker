@@ -105,6 +105,16 @@ docker-compose exec -i php sh -c 'exec php xcat Cron'
 docker-compose exec -i php sh -c 'exec php xcat Tool cleanLegacy'
 ```
 
+### 升级 MariaDB
+
+`mariadb:lts` 始终指向最新的 LTS 版本，重新拉取镜像后可能换到新的大版本。换版本之后执行一次 `mariadb-upgrade` 更新系统表；已经是最新时它什么都不做。
+
+```bash
+# 先备份数据库（见下面“迁移备份&还原数据库”）
+docker-compose pull mariadb && docker-compose up -d mariadb
+docker-compose exec mariadb sh -c 'exec mariadb-upgrade -uroot -p"$MARIADB_ROOT_PASSWORD"'
+```
+
 ### 停止面板(~~跑路~~)
 
 ```bash

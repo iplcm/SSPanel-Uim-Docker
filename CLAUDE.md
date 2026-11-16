@@ -27,6 +27,7 @@ Things that are easy to get wrong:
 - All containers run with `TZ=Asia/Shanghai`.
 - nginx trusts `CF-Connecting-IP` from the Cloudflare IP ranges listed in `nginx.conf`; the panel sits behind Cloudflare in the intended deployment. The panel reads the client IP only from `REMOTE_ADDR`, so rate limits, session IP binding and the node-IP check all depend on this `real_ip` setup being correct.
 - `file/mariadb/my.cnf` only forces `SET NAMES utf8` on connect. The database itself should be created as `utf8mb4_unicode_ci` (see README).
+- MariaDB 11.6 and later (so the current `mariadb:lts`) default to `innodb_snapshot_isolation=ON`: inside a transaction, a plain `SELECT` followed by an `UPDATE` of a row that another connection changed in between fails with error 1020 `Record has changed since last read` and rolls the transaction back. The panel's cron transactions therefore read everything they need before `BEGIN` and contain writes only; keep it that way when changing panel code, and note that node traffic reports write `user` rows every minute.
 
 ## The PHP image
 
