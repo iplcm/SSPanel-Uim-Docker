@@ -6,9 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Docker Compose deployment wrapper around [SSPanel-Uim](https://github.com/iplcm/SSPanel-Uim), which is vendored as a git submodule at `SSPanel-Uim/`. There is no application code here; the repo only holds the compose file, the PHP image definition, and nginx/mariadb config. Application changes belong in the submodule (its own upstream repo), not here. Commit messages in this repo are written in Chinese.
 
-The panel in the submodule is a slimmed-down fork: wallet-signature login, Soul Point based membership, Shadowsocks-only nodes, a JSON API under `/api`, subscriptions under `/sub`, the node WebAPI under `/mod_mu`, and a Preact single-page frontend whose build output is committed in `SSPanel-Uim/public/` (no Node needed to deploy). Its own README (Chinese) documents features, config keys and the upgrade path.
+The panel in the submodule is a slimmed-down fork: wallet-signature login, Soul Point based membership, Shadowsocks-only nodes, a JSON API under `/api`, subscriptions under `/sub`, the node WebAPI under `/mod_mu`, and a Preact single-page frontend whose build output is committed in `SSPanel-Uim/public/` (no Node needed to deploy). Its own README (Chinese) is the authoritative reference for features, config keys, the upgrade path, the test suite and the frontend build.
 
-Clone with `git clone --recurse-submodules`; if `SSPanel-Uim/` is empty run `git submodule update --init`. Bumping the pinned submodule commit and committing the new pointer is the most common change in the history. `git submodule update --remote` follows the submodule's default branch (`uim`), so only use it when that is the branch you want to deploy.
+Clone with `git clone --recurse-submodules`; if `SSPanel-Uim/` is empty run `git submodule update --init`. Pulling or checking out this repo only moves the recorded pointer, not the submodule working tree, so run `git submodule update --init` afterwards; `git submodule status` marks a checkout that differs from the pinned commit with `+`. Bumping the pinned submodule commit and committing the new pointer is the most common change in the history. `git submodule update --remote` follows the submodule's default branch (`uim`), so only use it when that is the branch you want to deploy.
 
 ## Service topology (docker-compose.yaml)
 
@@ -27,7 +27,7 @@ Things that are easy to get wrong:
 - All containers run with `TZ=Asia/Shanghai`.
 - nginx trusts `CF-Connecting-IP` from the Cloudflare IP ranges listed in `nginx.conf`; the panel sits behind Cloudflare in the intended deployment. The panel reads the client IP only from `REMOTE_ADDR`, so rate limits, session IP binding and the node-IP check all depend on this `real_ip` setup being correct.
 - `file/mariadb/my.cnf` only forces `SET NAMES utf8` on connect. The database itself should be created as `utf8mb4_unicode_ci` (see README).
-- MariaDB 11.6 and later (so the current `mariadb:lts`) default to `innodb_snapshot_isolation=ON`: inside a transaction, a plain `SELECT` followed by an `UPDATE` of a row that another connection changed in between fails with error 1020 `Record has changed since last read` and rolls the transaction back. The panel's cron transactions therefore read everything they need before `BEGIN` and contain writes only; keep it that way when changing panel code, and note that node traffic reports write `user` rows every minute.
+- MariaDB 11.6 and later (so the current `mariadb:lts`) default to `innodb_snapshot_isolation=ON`: inside a transaction, a plain `SELECT` followed by an `UPDATE` of a row that another connection changed in between fails with error 1020 `Record has changed since last read` and rolls the transaction back. The panel's transaction blocks (`src/Services/Cron.php`, `src/Controllers/WebAPI/UserController.php`) therefore read everything they need before opening the transaction and contain writes only; keep it that way when changing panel code, and note that node traffic reports write `user` rows every minute.
 
 ## The PHP image
 
@@ -50,6 +50,9 @@ docker run --rm -v $PWD/SSPanel-Uim:/app composer install --no-dev --ignore-plat
 docker-compose up -d
 docker-compose down          # keeps /opt/data/mysql and /opt/data/redis
 
+# After `docker-compose pull mariadb` crosses an LTS major version (e.g. 11.8 -> 12.3)
+docker-compose exec mariadb sh -c 'exec mariadb-upgrade -uroot -p"$MARIADB_ROOT_PASSWORD"'
+
 # Run SSPanel CLI (xcat) inside the php container
 docker-compose exec -i php sh -c 'exec php xcat Migration new'      # fresh DB: schema + settings
 docker-compose exec -i php sh -c 'exec php xcat Migration latest'   # upgrade an existing DB (additive only, drops nothing)
@@ -64,10 +67,27 @@ docker-compose exec -i php sh -c 'exec chmod -R 755 `pwd` && chown -R www-data: 
 docker-compose exec mariadb sh -c 'exec mariadb-dump sspanel -uroot -p"$MARIADB_ROOT_PASSWORD"' > db.sql
 ```
 
-Panel config lives in the submodule: copy `SSPanel-Uim/config/.config.example.php` to `.config.php` (and `appprofile.example.php` to `appprofile.php`) and set `db_host` to `mariadb`. These files are inside the submodule tree and are not tracked by this repo.
+Panel config lives in the submodule: copy `SSPanel-Uim/config/.config.example.php` to `.config.php` (and `appprofile.example.php` to `appprofile.php`), set `db_host` to `mariadb` and `redis_host` to `redis`. `key` must not stay `ChangeMe` or empty (it signs login sessions), and `baseUrl`/`subUrl`/`webAPIUrl` must match the domains actually served: `/sub` is only served on the `subUrl` host and `/mod_mu` only accepts the `webAPIUrl` host. Both files are gitignored by the submodule.
 
 `nginx.conf` is bind-mounted, so config changes need `docker-compose restart nginx`; restart `php` after updating the submodule so opcache drops the old code.
 
 ## Testing / linting
 
-There are no tests or linters for this repo itself. The submodule has a PHPUnit suite (`vendor/bin/phpunit`; the API tests need a disposable MariaDB database, see its README) and the frontend source in `web/`; run them from inside `SSPanel-Uim/` only if you are intentionally working on the panel code.
+There are no tests or linters for this repo itself. The submodule has a PHPUnit 12 suite; only run it when intentionally working on the panel code. Deployment installs composer deps with `--no-dev`, which leaves PHPUnit out, so install dev deps first:
+
+```bash
+docker run --rm -v $PWD/SSPanel-Uim:/app composer install --ignore-platform-reqs
+docker-compose exec -i php sh -c 'cd /var/www/html && exec vendor/bin/phpunit --testsuite unit'   # no DB needed
+```
+
+The `api` suite resets a disposable MariaDB database and skips itself when it cannot connect. From inside `php-2025` point it at `mariadb:3306`; the database name must contain `test` because the suite drops every table in it:
+
+```bash
+docker-compose exec -i php env TEST_DB_HOST=mariadb TEST_DB_DATABASE=sspanel_test \
+  TEST_DB_USERNAME=root TEST_DB_PASSWORD='<password from .env>' \
+  sh -c 'cd /var/www/html && exec vendor/bin/phpunit'
+```
+
+Set `TEST_LEGACY_SCHEMA=1` to run the API suite against an upgraded legacy schema instead of a fresh install (the defaults are in `SSPanel-Uim/tests/bootstrap.php`).
+
+The frontend source is `SSPanel-Uim/web/` (Preact + Vite, Node >= 24). `npm ci && npm run build` writes the hashed bundle into `SSPanel-Uim/public/`, which is committed; `tests/Unit/FrontendBuildTest.php` fails if that build is missing or stale. `npm run dev` serves <http://localhost:5173> and proxies `/api/` and `/sub/` to <http://127.0.0.1:8080> (override with `VITE_DEV_API`).

@@ -1,0 +1,19 @@
+# 仅用于本机冒烟测试：改端口并用 /tmp 下的临时数据目录，
+# 不碰 /opt/data/mysql 和宿主机 8080。
+services:
+    nginx:
+        ports: !override
+            - "18080:80"
+    mariadb:
+        ports: !override
+            - "16306:3306"
+        volumes: !override
+            - /tmp/sspanel-test-mysql:/var/lib/mysql
+            - ./SSPanel-Uim/db:/tmp/sql
+            - ./file/mariadb:/etc/mysql/conf.d
+    redis:
+        volumes: !override
+            - /tmp/sspanel-test-redis:/data
+    phpmyadmin:
+        ports: !override
+            - "18888:80"
