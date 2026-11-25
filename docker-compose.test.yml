@@ -1,5 +1,5 @@
 # 仅用于本机冒烟测试：改端口并用 /tmp 下的临时数据目录，
-# 不碰 /opt/data/mysql 和宿主机 8080。
+# 不碰 /opt/ssp-2027/mysql 和宿主机 8080。
 services:
     nginx:
         ports: !override

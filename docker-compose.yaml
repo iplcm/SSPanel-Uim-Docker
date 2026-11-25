@@ -35,7 +35,7 @@ services:
             - TZ=Asia/Shanghai
             - MARIADB_ROOT_PASSWORD=$MARIADB_ROOT_PASSWORD
         volumes:
-            - /opt/data/mysql:/var/lib/mysql
+            - /opt/ssp-2027/mysql:/var/lib/mysql
             - ./SSPanel-Uim/db:/tmp/sql
             - ./file/mariadb:/etc/mysql/conf.d
 
@@ -44,7 +44,7 @@ services:
         restart: always
         image: redis # 面板只用它做请求限流
         volumes:
-            - /opt/data/redis:/data
+            - /opt/ssp-2027/redis:/data
         environment:
             - TZ=Asia/Shanghai
 

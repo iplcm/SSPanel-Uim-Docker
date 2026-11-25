@@ -6,7 +6,8 @@
 
 ### 下载源代码
 ```bash
-git clone --recurse-submodules --depth=1 https://github.com/du5/SSPanel-Uim-Docker && cd SSPanel-Uim-Docker
+# 项目和数据都放在 /opt/ssp-2027 下
+git clone --recurse-submodules --depth=1 https://github.com/du5/SSPanel-Uim-Docker /opt/ssp-2027 && cd /opt/ssp-2027
 # git submodule update --init # 子模块目录是空的时候执行
 ```
 
@@ -23,7 +24,8 @@ docker run --rm -v $PWD/SSPanel-Uim:/app composer install --no-dev --ignore-plat
 ### 启动
 
 ```bash
-# 数据库文件位置 /opt/data/mysql
+# 数据库文件位置 /opt/ssp-2027/mysql（从旧目录迁移：先 docker-compose down，再 mv /opt/data/mysql /opt/ssp-2027/mysql）
+# Redis 数据位置 /opt/ssp-2027/redis
 # 时区 Asia/Shanghai
 # 数据库 root 密码写在 docker-compose.yaml 同目录的 .env 里：MARIADB_ROOT_PASSWORD=...
 # 可通过 docker-compose.yaml 配置文件修改
@@ -121,7 +123,7 @@ docker-compose exec mariadb sh -c 'exec mariadb-upgrade -uroot -p"$MARIADB_ROOT_
 # 在项目根目录下执行
 docker-compose down
 # 该命令不会删除数据库, 如需删库跑路需要额外执行下一条命令
-# rm -rf /opt/data/mysql
+# rm -rf /opt/ssp-2027/mysql
 ```
 
 ### 迁移备份&还原数据库

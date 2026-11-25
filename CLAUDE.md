@@ -16,9 +16,11 @@ Clone with `git clone --recurse-submodules`; if `SSPanel-Uim/` is empty run `git
 |---|---|---|---|
 | nginx | `nginx-2025` | `nginx:alpine` | Host port 8080. Mounts `file/nginx/` as `conf.d` and the submodule at `/usr/www/html`. Serves `/assets/` (hashed frontend files) itself with a one-year cache; everything else that is not a file goes to `index.php`, which answers API routes or returns the frontend page. |
 | php | `php-2025` | `gtary/ssp:php` (built from `file/php/Dockerfile`) | Mounts the submodule at `/var/www/html`. No host port; nginx reaches it at `php:9000`. |
-| mariadb | `mariadb-2025` | `mariadb:lts` | Latest LTS on purpose (12.3 in November 2026). Host port 63306 (read access for AI tooling). Data in `/opt/data/mysql` on the host. `SSPanel-Uim/db` is mounted at `/tmp/sql` for SQL imports. |
-| redis | `redis-2025` | `redis` | Only used by the panel for request rate limiting; the panel keeps working (limits off) when it is down. Data in `/opt/data/redis`. No host port. |
+| mariadb | `mariadb-2025` | `mariadb:lts` | Latest LTS on purpose (12.3 in November 2026). Host port 63306 (read access for AI tooling). Data in `/opt/ssp-2027/mysql` on the host. `SSPanel-Uim/db` is mounted at `/tmp/sql` for SQL imports. |
+| redis | `redis-2025` | `redis` | Only used by the panel for request rate limiting; the panel keeps working (limits off) when it is down. Data in `/opt/ssp-2027/redis`. No host port. |
 | phpmyadmin | `phpmyadmin-2025` | `phpmyadmin` | Host port 888, `PMA_ARBITRARY=1`; connect with host `mariadb`, user `root`. |
+
+Host data lives under `/opt/ssp-2027/` (`mysql`, `redis`). The project files are bind-mounted with relative paths, so clone the repo at `/opt/ssp-2027` to keep every host mount under that directory; `mysql/` and `redis/` are gitignored.
 
 Things that are easy to get wrong:
 
@@ -48,7 +50,7 @@ Operational commands are all in [README.md](README.md) (Chinese); the essentials
 docker run --rm -v $PWD/SSPanel-Uim:/app composer install --no-dev --ignore-platform-reqs
 
 docker-compose up -d
-docker-compose down          # keeps /opt/data/mysql and /opt/data/redis
+docker-compose down          # keeps /opt/ssp-2027/mysql and /opt/ssp-2027/redis
 
 # After `docker-compose pull mariadb` crosses an LTS major version (e.g. 11.8 -> 12.3)
 docker-compose exec mariadb sh -c 'exec mariadb-upgrade -uroot -p"$MARIADB_ROOT_PASSWORD"'
